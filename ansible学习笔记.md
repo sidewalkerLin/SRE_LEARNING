@@ -238,6 +238,8 @@ ansible 10.0.0.165 -m ping -k
 
 10.0.0.165bi需要在主机清单中
 
+![image](https://github.com/sidewalkerLin/SRE_LEARNING/blob/main/images/image-20231205141822286.png)
+
 https://github.com/sidewalkerLin/SRE_LEARNING/blob/main/images/image-20231205141822286.png
 
 ![image-20240811212417624](C:\Users\26926\AppData\Roaming\Typora\typora-user-images\image-20240811212417624.png)
