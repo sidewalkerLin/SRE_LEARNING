@@ -77,7 +77,7 @@ ansible --version
 cat /etc/ansible/ansible.cfg
 ```
 
-![image-20240107153359110](C:\Users\26926\AppData\Roaming\Typora\typora-user-images\image-20240107153359110.png)
+![image-20240107153359110](https://github.com/sidewalkerLin/SRE_LEARNING/blob/main/images/image-20240107153359110.png)
 
 (3)生成主配置文件的模板
 
@@ -104,7 +104,7 @@ apt update && apt install -y ansible
 ansible --version
 ```
 
-![image-20240107194104047](C:\Users\26926\AppData\Roaming\Typora\typora-user-images\image-20240107194104047.png)
+![image-20240107194104047](https://github.com/sidewalkerLin/SRE_LEARNING/blob/main/images/image-20240107194104047.png)
 
 (3)生成主配置文件的模板
 
@@ -118,7 +118,7 @@ ansible --version
 ansible --version
 ```
 
-![image-20231204224010946](C:\Users\26926\AppData\Roaming\Typora\typora-user-images\image-20231204224010946.png)
+![image-20231204224010946](https://github.com/sidewalkerLin/SRE_LEARNING/blob/main/images/image-20231204224010946.png)
 
 #### 2、主配置文件生效的优先级
 
@@ -129,7 +129,7 @@ ansible的主配置文件可以有多个，并存放在不同的路径下
 ANSIBLE_CONFIG > ./ansible.cfg > ~/.ansible.cfg >  /etc/ansible/ansible.cfg
 ```
 
-<img src="C:\Users\26926\AppData\Roaming\Typora\typora-user-images\image-20240107190615666.png" alt="image-20240107190615666" style="zoom:80%;" />
+<img src="https://github.com/sidewalkerLin/SRE_LEARNING/blob/main/images/image-20240107190615666.png" alt="image-20240107190615666" style="zoom:80%;" />
 
 #### 3、主配置文件
 
@@ -232,17 +232,13 @@ ansible_shell_type                             #用于指定在远程主机上�
 
 ### 四、Ansible简单使用
 
-1、ansible命令基础用法
+#### 1、ansible命令基础用法
 
 ansible 10.0.0.165 -m ping -k
 
 10.0.0.165bi需要在主机清单中
 
 ![image](https://github.com/sidewalkerLin/SRE_LEARNING/blob/main/images/image-20231205141822286.png)
-
-https://github.com/sidewalkerLin/SRE_LEARNING/blob/main/images/image-20231205141822286.png
-
-![image-20240811212417624](C:\Users\26926\AppData\Roaming\Typora\typora-user-images\image-20240811212417624.png)
 
 ```bash
 #-k使用ssh密码验证，不用-k则是基于key验证
