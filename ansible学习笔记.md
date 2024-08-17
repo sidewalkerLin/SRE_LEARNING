@@ -110,9 +110,15 @@ ansible --version
 
 参考rokcy中生成ansible主配置文件模板
 
+#### 3、二进制安装ansible
+
+
+
 ### 三、Ansible配置文件详解
 
 #### 1、查看ansible配置文件路径
+
+配置文件需要自己生成
 
 ```bash
 ansible --version
