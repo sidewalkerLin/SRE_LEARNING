@@ -143,7 +143,7 @@ sysctl --system
 apt -y install ipvsadm ipset sysstat conntrack libseccomp2
 
 #开机启动会自动加载下列IPVS模块
-cat > /etc/modules-load.d/ipvs.conf << 'EOF'
+cat > /etc/modules-load.d/ipvs.conf << EOF
 ip_vs
 ip_vs_lc
 ip_vs_wlc
@@ -168,8 +168,99 @@ ipt_REJECT
 ipip
 EOF
 
-#立即加载以上ipvs模块
+#立即临时加载以上ipvs模块
 cat /etc/modules-load.d/ipvs.conf | xargs -I {} modprobe {}
 ```
 
-12、
+# 二、部署containerd
+
+## 1、安装一些必要的工具
+
+```bash
+apt -y install apt-transport-https ca-certificates curl software-properties-common
+```
+
+## 2、添加docker源
+
+```bash
+#下载并添加了Docker源的GPG密钥，确保从Docker的APT源下载的软件包是可信的
+curl -fsSL https://mirrors.tuna.tsinghua.edu.cn/docker-ce/linux/ubuntu/gpg | apt-key add -
+
+#添加了Docker的APT源到系统中，下载containerd依赖这个源
+add-apt-repository "deb [arch=amd64] https://mirrors.tuna.tsinghua.edu.cn/docker-ce/linux/ubuntu $(lsb_release -cs) stable"
+```
+
+## 3、安装containerd
+
+```bash
+apt -y install containerd.io
+```
+
+## 4、加载containerd模块
+
+```bash
+#开机启动会自动加载下列containerd模块
+cat > /etc/modules-load.d/containerd.conf << EOF
+overlay
+br_netfilter
+EOF
+
+#立即临时加载以上containerd模块
+cat /etc/modules-load.d/containerd.conf  | xargs -I {} modprobe {}
+```
+
+## 5、重新初始化containerd配置文件
+
+```bash
+containerd config default > /etc/containerd/config.toml
+```
+
+## 6、修改Cgroup的管理者为systemd组件
+
+```bash
+sed -ri 's#(SystemdCgroup = )false#\1true#' /etc/containerd/config.toml
+```
+
+## 7、修改pause容器的拉取源
+
+```bash
+sed -i 's#registry.k8s.io/pause:3.8#registry.cn-hangzhou.aliyuncs.com/google_containers/pause:3.9#' /etc/containerd/config.toml
+```
+
+## 8、启动containerd
+
+```bash
+systemctl daemon-reload && systemctl enable --now containerd && systemctl status containerd
+```
+
+## 9、配置crictl工具
+
+```bash
+cat > /etc/crictl.yaml <<EOF
+runtime-endpoint: unix:///run/containerd/containerd.sock
+image-endpoint: unix:///run/containerd/containerd.sock
+timeout: 10
+debug: false
+EOF
+```
+
+# 三、部署etcd
+
+1、下载etcd部署包
+
+```bash
+wget https://github.com/etcd-io/etcd/releases/download/v3.5.14/etcd-v3.5.14-linux-amd64.tar.gz
+```
+
+2、
+
+```
+
+```
+
+3、
+
+```
+
+```
+
