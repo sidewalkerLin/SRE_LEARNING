@@ -244,7 +244,200 @@ debug: false
 EOF
 ```
 
-# 三、部署etcd
+# 三、生成证书
+
+## 1、安装证书生成工具
+
+```bash
+wget https://pkg.cfssl.org/R1.2/cfssl_linux-amd64 -O /usr/local/bin/cfssl
+
+wget https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64 -O /usr/local/bin/cfssljson
+
+chmod +x /usr/local/bin/cfssl
+chmod +x /usr/local/bin/cfssljson
+```
+
+### 2、根证书
+
+根证书只需要一个，用来签发其它各个组件的证书
+
+```bash
+#创建一个文件存放证书以及密钥
+mkdir -p /etc/kubernetes/pki&& cd /etc/kubernetes/pki
+
+#此json文件用于配置证书颁发机构（CA）的签发策略
+cat > ca-config.json <<EOF
+{
+  "signing": {
+    "default": {
+      "expiry": "87600h"
+    },
+    "profiles": {
+      "kubernetes": {
+        "usages": ["signing", "key encipherment", "server auth", "client auth"],
+        "expiry": "87600 h"
+      }
+    }
+  }
+}
+EOF
+
+#此json文件用于定义 CA 证书的签名请求（CSR）内容
+cat > ca-csr.json <<EOF
+{
+  "CN": "Kubernetes",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "CN",
+      "L": "Beijing",
+      "O": "Kubernetes",
+      "OU": "CA",
+      "ST": "Beijing"
+    }
+  ]
+}
+EOF
+
+#生成CA证书以及私钥
+cfssl gencert -initca ca-csr.json | cfssljson -bare ca
+```
+
+## 3、kube-apiserver证书
+
+```bash
+
+```
+
+## 4、etcd证书
+
+```bash
+
+```
+
+## 5、kube-scheduler证书
+
+```bash
+cat > kube-scheduler-csr.json <<EOF
+{
+    "CN": "system:kube-scheduler",
+    "key": {
+        "algo": "rsa",
+        "size": 2048
+    },
+    "names": [
+      {
+        "C": "CN",
+        "ST": "BeiJing",
+        "L": "BeiJing",
+        "O": "system:kube-scheduler",
+        "OU": "seven"
+      }
+    ]
+}
+EOF
+
+#生成kube-scheduler证书以及密钥
+cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes kube-scheduler-csr.json | cfssljson -bare kube-scheduler
+```
+
+## 6、kube-controller-manager证书
+
+```bash
+cat > kube-controller-manager-csr.json <<EOF
+{
+    "CN": "system:kube-controller-manager",
+    "key": {
+        "algo": "rsa",
+        "size": 2048
+    },
+    "names": [
+      {
+        "C": "CN",
+        "ST": "BeiJing",
+        "L": "BeiJing",
+        "O": "system:kube-controller-manager",
+        "OU": "seven"
+      }
+    ]
+}
+EOF
+
+#生成kube-controller-manager证书及密钥
+cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes kube-controller-manager-csr.json | cfssljson -bare kube-controller-manager
+```
+
+## 7、admin客户端证书
+
+```bash
+cat > admin-csr.json <<EOF
+{
+  "CN": "admin",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "CN",
+      "ST": "BeiJing",
+      "L": "BeiJing",
+      "O": "system:masters",
+      "OU": "seven"
+    }
+  ]
+}
+EOF
+
+#生成admin客户端证书及私钥
+cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes admin-csr.json | cfssljson -bare admin
+```
+
+## 8、kubelet客户端证书
+
+```bash
+WORKERS=("k8s-node-105" "k8s-node-106" "k8s-node-107")
+
+for ((i=0;i<${#WORKERS[@]};i++)); do
+    cat > ${WORKERS[$i]}-csr.json <<EOF
+    {
+      "CN": "system:node:${WORKERS[$i]}",
+      "key": {
+        "algo": "rsa",
+        "size": 2048
+      },
+      "names": [
+        {
+          "C": "CN",
+          "L": "Beijing",
+          "O": "system:nodes",
+          "OU": "seven",
+          "ST": "Beijing"
+        }
+      ]
+    }
+    EOF
+
+cfssl gencert \
+  -ca=ca.pem \
+  -ca-key=ca-key.pem \
+  -config=ca-config.json \
+  -hostname=${WORKERS[$i]},${WORKER_IPS[$i]} \
+  -profile=kubernetes \
+  ${WORKERS[$i]}-csr.json | cfssljson -bare ${WORKERS[$i]}
+done
+```
+
+## 9、kube-proxy证书
+
+```bash
+
+```
+
+# 四、部署etcd
 
 1、下载etcd部署包
 
