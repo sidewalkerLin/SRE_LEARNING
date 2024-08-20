@@ -257,16 +257,16 @@ chmod +x /usr/local/bin/cfssl
 chmod +x /usr/local/bin/cfssljson
 ```
 
-### 2、根证书
+### 2、etcd CA证书
 
-根证书只需要一个，用来签发其它各个组件的证书
+用来签发etcd的server证书、client证书、peer证书，这里server、client、peer公用一套证书就行
 
 ```bash
 #创建一个文件存放证书以及密钥
-mkdir -p /etc/kubernetes/pki&& cd /etc/kubernetes/pki
+mkdir -p /etc/etcd/ssl && cd /etc/etcd/ssl
 
-#此json文件用于配置证书颁发机构（CA）的签发策略
-cat > ca-config.json <<EOF
+#此json文件用于配置证书颁发机构（CA）的签发策略,颁发子证书使用此json文件
+cat > etcd-ca-config.json <<EOF
 {
   "signing": {
     "default": {
@@ -275,7 +275,7 @@ cat > ca-config.json <<EOF
     "profiles": {
       "kubernetes": {
         "usages": ["signing", "key encipherment", "server auth", "client auth"],
-        "expiry": "87600 h"
+        "expiry": "87600h"
       }
     }
   }
@@ -283,7 +283,89 @@ cat > ca-config.json <<EOF
 EOF
 
 #此json文件用于定义 CA 证书的签名请求（CSR）内容
-cat > ca-csr.json <<EOF
+cat > etcd-ca-csr.json <<EOF
+{
+  "CN": "etcd",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "CN",
+      "ST": "Beijing",
+      "L": "Beijing",
+      "O": "etcd",
+      "OU": "Etcd Security"
+    }
+  ],
+  "ca": {
+    "expiry": "87600h"
+  }
+}
+EOF
+
+#生成etcd的证书及密钥
+cfssl gencert -initca etcd-ca-csr.json | cfssljson -bare /etc/etcd/ssl/etcd-ca
+```
+
+## 3、etcd证书
+
+```bash
+#生成etcd证书的csr文件
+cat > etcd-csr.json <<EOF
+{
+  "CN": "etcd",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "CN",
+      "ST": "Beijing",
+      "L": "Beijing",
+      "O": "etcd",
+      "OU": "Etcd Security"
+    }
+  ]
+}
+EOF
+
+#
+cfssl gencert -ca=/etc/etcd/ssl/etcd-ca.pem -ca-key=/etc/etcd/ssl/etcd-ca-key.pem -config=etcd-ca-config.json --hostname=127.0.0.1,k8s-master-102,k8s-master-103,k8s-master104,10.0.0.102,10.0.0.103,10.0.0.104 --profile=kubernetes etcd-csr.json  | cfssljson -bare /etc/etcd/ssl/etcd
+
+#其它master节点创建相同的目录，将所有证书密钥scp过去即可
+scp /etc/etcd/ssl/* root@ip:/etc/etcd/ssl/
+```
+
+## 4、k8s CA证书
+
+用来签发其它k8s的组件的证书
+
+```bash
+#创建一个文件存放证书以及密钥
+mkdir -p /etc/kubernetes/pki && cd /etc/kubernetes/pki
+
+#此json文件用于配置证书颁发机构（CA）的签发策略
+cat > k8s-ca-config.json <<EOF
+{
+  "signing": {
+    "default": {
+      "expiry": "87600h"
+    },
+    "profiles": {
+      "kubernetes": {
+        "usages": ["signing", "key encipherment", "server auth", "client auth"],
+        "expiry": "87600h"
+      }
+    }
+  }
+}
+EOF
+
+#此json文件用于定义 CA 证书的签名请求（CSR）内容
+cat > k8s-ca-csr.json <<EOF
 {
   "CN": "Kubernetes",
   "key": {
@@ -295,30 +377,50 @@ cat > ca-csr.json <<EOF
       "C": "CN",
       "L": "Beijing",
       "O": "Kubernetes",
-      "OU": "CA",
+      "OU": "Kubernetes-manual",
       "ST": "Beijing"
     }
   ]
 }
 EOF
 
-#生成CA证书以及私钥
-cfssl gencert -initca ca-csr.json | cfssljson -bare ca
+#生成k8s的CA证书以及私钥
+cfssl gencert -initca ca-csr.json | cfssljson -bare /etc/kubernetes/pki/k8s-ca
 ```
 
-## 3、kube-apiserver证书
+## 5、kube-apiserver证书
 
 ```bash
+cat > kube-apiserver-csr.json <<EOF
+{
+  "CN": "kube-apiserver",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "CN",
+      "ST": "Beijing",
+      "L": "Beijing",
+      "O": "Kubernetes",
+      "OU": "Kubernetes-manual"
+    }
+  ]
+}
+EOF
 
+#
+cfssl gencert \
+  -ca=/etc/kubernetes/pki/k8s-ca.pem \
+  -ca-key=/etc/kubernetes/pki/k8s-ca-key.pem \
+  -config=/etc/kubernetes/pki/k8s-ca-config.json \
+  --hostname=10.200.0.1,10.0.0.240,kubernetes,kubernetes.default,kubernetes.default.svc,kubernetes.default.svc.yinzhengjie,kubernetes.default.svc.yinzhengjie.com,10.0.0.241,10.0.0.242,10.0.0.243,10.0.0.244,10.0.0.245 \
+  --profile=kubernetes \
+   apiserver-csr.json  | cfssljson -bare /etc/kubernetes/pki/kube-apiserver
 ```
 
-## 4、etcd证书
-
-```bash
-
-```
-
-## 5、kube-scheduler证书
+## 6、kube-scheduler证书
 
 ```bash
 cat > kube-scheduler-csr.json <<EOF
@@ -334,17 +436,17 @@ cat > kube-scheduler-csr.json <<EOF
         "ST": "BeiJing",
         "L": "BeiJing",
         "O": "system:kube-scheduler",
-        "OU": "seven"
+        "OU": "Kubernetes-manual"
       }
     ]
 }
 EOF
 
 #生成kube-scheduler证书以及密钥
-cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes kube-scheduler-csr.json | cfssljson -bare kube-scheduler
+cfssl gencert -ca=k8s-ca.pem -ca-key=k8s-ca-key.pem -config=k8s-ca-config.json -profile=kubernetes kube-scheduler-csr.json | cfssljson -bare kube-scheduler
 ```
 
-## 6、kube-controller-manager证书
+## 7、kube-controller-manager证书
 
 ```bash
 cat > kube-controller-manager-csr.json <<EOF
@@ -360,7 +462,7 @@ cat > kube-controller-manager-csr.json <<EOF
         "ST": "BeiJing",
         "L": "BeiJing",
         "O": "system:kube-controller-manager",
-        "OU": "seven"
+        "OU": "Kubernetes-manual"
       }
     ]
 }
@@ -370,7 +472,7 @@ EOF
 cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes kube-controller-manager-csr.json | cfssljson -bare kube-controller-manager
 ```
 
-## 7、admin客户端证书
+## 8、admin客户端证书
 
 ```bash
 cat > admin-csr.json <<EOF
@@ -386,7 +488,7 @@ cat > admin-csr.json <<EOF
       "ST": "BeiJing",
       "L": "BeiJing",
       "O": "system:masters",
-      "OU": "seven"
+      "OU": "Kubernetes-manual"
     }
   ]
 }
@@ -396,7 +498,7 @@ EOF
 cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes admin-csr.json | cfssljson -bare admin
 ```
 
-## 8、kubelet客户端证书
+## 9、kubelet客户端证书
 
 ```bash
 WORKERS=("k8s-node-105" "k8s-node-106" "k8s-node-107")
@@ -414,7 +516,7 @@ for ((i=0;i<${#WORKERS[@]};i++)); do
           "C": "CN",
           "L": "Beijing",
           "O": "system:nodes",
-          "OU": "seven",
+          "OU": "Kubernetes-manual",
           "ST": "Beijing"
         }
       ]
@@ -431,7 +533,7 @@ cfssl gencert \
 done
 ```
 
-## 9、kube-proxy证书
+## 10、kube-proxy证书
 
 ```bash
 
